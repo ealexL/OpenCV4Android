@@ -1,5 +1,6 @@
-package com.ealax.opencvdemo.fliters
+package com.ealax.opencvdemo.fliters.curve
 
+import com.ealax.opencvdemo.fliters.Filter
 import org.apache.commons.math3.analysis.UnivariateFunction
 import org.apache.commons.math3.analysis.interpolation.LinearInterpolator
 import org.apache.commons.math3.analysis.interpolation.SplineInterpolator

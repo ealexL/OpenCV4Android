@@ -11,7 +11,17 @@ import android.provider.MediaStore
 import android.support.v7.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
+import android.view.WindowManager
 import android.widget.Toast
+import com.ealax.opencvdemo.fliters.*
+import com.ealax.opencvdemo.fliters.convolution.StrokeEdgesFilter
+import com.ealax.opencvdemo.fliters.curve.CrossProcessCurveFilter
+import com.ealax.opencvdemo.fliters.curve.PortraCurveFilter
+import com.ealax.opencvdemo.fliters.curve.ProviaCurveFilter
+import com.ealax.opencvdemo.fliters.mixer.RecolorCMVFilter
+import com.ealax.opencvdemo.fliters.curve.VelviaCureFilter
+import com.ealax.opencvdemo.fliters.mixer.RecolorRCFilter
+import com.ealax.opencvdemo.fliters.mixer.RecolorRGVFilter
 import org.opencv.android.*
 import org.opencv.core.Core
 import org.opencv.core.Mat
@@ -33,6 +43,9 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
     companion object {
         private val TAG = "CameraActivity"
         private val STATE_CAMEERA_INDEX = "cameraIndex"
+        private val STATE_CURVE_FILTER_INDEX = "curveFilterIndex"
+        private val STATE_MIXER_FILTER_INDEX = "mixerFilterIndex"
+        private val STATE_CONVOLUTION_FILTER_INDEX = "convolutionFilterIndex"
     }
 
     private var mCameraIndex: Int = 0
@@ -43,12 +56,27 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
     private var mBgr: Mat? = null
     private var mIsMenuLocked: Boolean = false
 
+    private var mCurveFilters: Array<Filter> = emptyArray()
+    private var mMixerFilters: Array<Filter> = emptyArray()
+    private var mConvolutionFilters: Array<Filter> = emptyArray()
+
+    private var mCurveFilterIndex = 0
+    private var mMixerFilterIndex = 0
+    private var mConvolutionFilterIndex = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (savedInstanceState != null) {
             mCameraIndex = savedInstanceState.getInt(STATE_CAMEERA_INDEX, 0)
+            mCurveFilterIndex = savedInstanceState.getInt(STATE_CURVE_FILTER_INDEX, 0)
+            mMixerFilterIndex = savedInstanceState.getInt(STATE_MIXER_FILTER_INDEX, 0)
+            mConvolutionFilterIndex = savedInstanceState.getInt(STATE_CONVOLUTION_FILTER_INDEX, 0)
         } else {
             mCameraIndex = 0
+            mCurveFilterIndex = 0
+            mMixerFilterIndex = 0
+            mConvolutionFilterIndex = 0
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
             var cameraInfo = Camera.CameraInfo()
@@ -66,6 +94,9 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
 
     override fun onSaveInstanceState(outState: Bundle?) {
         outState!!.putInt(STATE_CAMEERA_INDEX, mCameraIndex)
+        outState.putInt(STATE_CURVE_FILTER_INDEX, mCurveFilterIndex)
+        outState.putInt(STATE_MIXER_FILTER_INDEX, mMixerFilterIndex)
+        outState.putInt(STATE_CONVOLUTION_FILTER_INDEX, mConvolutionFilterIndex)
         super.onSaveInstanceState(outState)
     }
 
@@ -116,6 +147,27 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
                 mIsPhotoPending = true
                 return true
             }
+            R.id.menu_next_curve_filter -> {
+                mCurveFilterIndex++
+                if (mCurveFilterIndex == mCurveFilters.size) {
+                    mCurveFilterIndex = 0
+                }
+                return true
+            }
+            R.id.menu_next_mixer_filter -> {
+                mMixerFilterIndex++
+                if (mMixerFilterIndex == mMixerFilters.size) {
+                    mMixerFilterIndex = 0
+                }
+                return true
+            }
+            R.id.menu_next_convolution_filter -> {
+                mConvolutionFilterIndex++
+                if (mConvolutionFilterIndex == mConvolutionFilters.size) {
+                    mConvolutionFilterIndex = 0
+                }
+                return true
+            }
             else -> {
                 return super.onOptionsItemSelected(item)
             }
@@ -133,6 +185,20 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
                 LoaderCallbackInterface.SUCCESS -> {
                     mCameraView!!.enableView()
                     mBgr = Mat()
+                    mCurveFilters = arrayOf(
+                            NoneFilter(),
+                            PortraCurveFilter(),
+                            ProviaCurveFilter(),
+                            VelviaCureFilter(),
+                            CrossProcessCurveFilter())
+                    mMixerFilters = arrayOf(
+                            NoneFilter(),
+                            RecolorRCFilter(),
+                            RecolorRGVFilter(),
+                            RecolorCMVFilter())
+                    mConvolutionFilters = arrayOf(
+                            NoneFilter(),
+                            StrokeEdgesFilter())
                 }
                 else -> {
                     super.onManagerConnected(status)
@@ -154,6 +220,10 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
     override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
         //To change body of created functions use File | Settings | File Templates.
         val rgha = inputFrame!!.rgba()
+        //Apply the active filters
+        mCurveFilters[mCurveFilterIndex].apply(rgha,rgha)
+        mMixerFilters[mMixerFilterIndex].apply(rgha,rgha)
+        mConvolutionFilters[mConvolutionFilterIndex].apply(rgha,rgha)
         if (mIsPhotoPending) {
             mIsPhotoPending = false
             takePhoto(rgha)
@@ -177,36 +247,37 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
         values.put(MediaStore.Images.Media.DESCRIPTION, appName)
         values.put(MediaStore.Images.Media.DATE_TAKEN, currentTimeMillis)
         var album = File(albumPath)
-        if (!album.isDirectory&&!album.mkdirs()){
+        if (!album.isDirectory && !album.mkdirs()) {
             onTakePhotoFailed()
             return
         }
-        Imgproc.cvtColor(rgha,mBgr,Imgproc.COLOR_RGBA2BGR,3)
-        if (!Imgcodecs.imwrite(photoPath,mBgr)){
+        Imgproc.cvtColor(rgha, mBgr, Imgproc.COLOR_RGBA2BGR, 3)
+        if (!Imgcodecs.imwrite(photoPath, mBgr)) {
             onTakePhotoFailed()
         }
-        var uri:Uri
+        var uri: Uri
         try {
-            uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values)
-        }catch (e:Exception){
+            uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        } catch (e: Exception) {
             e.printStackTrace()
             var photo = File(photoPath)
-            if (!photo.delete()){
+            if (!photo.delete()) {
 
             }
             onTakePhotoFailed()
             return
         }
-        val intent = Intent(this,LabActivity::class.java)
-        intent.putExtra(LabActivity.EXTRA_PHOTO_URI,uri)
-        intent.putExtra(LabActivity.EXTRA_PHOTO_DATA_PATH,photoPath)
+        val intent = Intent(this, LabActivity::class.java)
+        intent.putExtra(LabActivity.EXTRA_PHOTO_URI, uri)
+        intent.putExtra(LabActivity.EXTRA_PHOTO_DATA_PATH, photoPath)
         startActivity(intent)
     }
-    private fun onTakePhotoFailed(){
+
+    private fun onTakePhotoFailed() {
         mIsMenuLocked = false
         val errorMessage = getString(R.string.photo_delete_prompt_message)
         runOnUiThread {
-            Toast.makeText(this@CameraActivity,errorMessage,Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@CameraActivity, errorMessage, Toast.LENGTH_SHORT).show()
         }
     }
 

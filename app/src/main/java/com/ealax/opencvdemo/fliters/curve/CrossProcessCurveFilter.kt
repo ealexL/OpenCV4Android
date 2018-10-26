@@ -1,4 +1,6 @@
-package com.ealax.opencvdemo.fliters
+package com.ealax.opencvdemo.fliters.curve
+
+import com.ealax.opencvdemo.fliters.curve.CurveFilter
 
 /**
  * Created by linwuyi on 2018/10/26

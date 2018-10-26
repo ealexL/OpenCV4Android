@@ -1,4 +1,4 @@
-package com.ealax.opencvdemo.fliters
+package com.ealax.opencvdemo.fliters.curve
 
 /**
  * Created by linwuyi on 2018/10/26

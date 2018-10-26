@@ -13,4 +13,23 @@
         app:showAsAction="always|withText"
         android:title="@string/menu_take_photo"
         />
+    <item
+        android:id="@+id/menu_next_curve_filter"
+        android:orderInCategory="100"
+        app:showAsAction="ifRoom|withText"
+        android:title="@string/menu_next_curve_filter"
+        />
+    <item
+        android:id="@+id/menu_next_mixer_filter"
+        android:orderInCategory="100"
+        app:showAsAction="ifRoom|withText"
+        android:title="@string/menu_next_mixer_filter"
+        />
+    <item
+        android:id="@+id/menu_next_convolution_filter"
+        android:orderInCategory="100"
+        app:showAsAction="ifRoom|withText"
+        android:title="@string/menu_next_convolution_filter"
+        />
+
 </menu>

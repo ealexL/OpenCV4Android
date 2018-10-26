@@ -1,10 +1,10 @@
-package com.ealax.opencvdemo.fliters
+package com.ealax.opencvdemo.fliters.curve
 
 /**
  * Created by linwuyi on 2018/10/26
  * Explanation:
  */
-class ProviaCurveFilter : CurveFilter{
+class ProviaCurveFilter : CurveFilter {
     constructor():
             super(doubleArrayOf(0.0,  255.0), doubleArrayOf(0.0, 255.0),
                     doubleArrayOf(0.0, 59.0, 202.0, 255.0), doubleArrayOf(0.0, 54.0, 210.0, 255.0),
