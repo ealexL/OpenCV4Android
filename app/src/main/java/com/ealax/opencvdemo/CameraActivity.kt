@@ -14,6 +14,7 @@ import android.view.MenuItem
 import android.view.WindowManager
 import android.widget.Toast
 import com.ealax.opencvdemo.fliters.*
+import com.ealax.opencvdemo.fliters.ar.ImageDetectionFilter
 import com.ealax.opencvdemo.fliters.convolution.StrokeEdgesFilter
 import com.ealax.opencvdemo.fliters.curve.CrossProcessCurveFilter
 import com.ealax.opencvdemo.fliters.curve.PortraCurveFilter
@@ -46,6 +47,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
         private val STATE_CURVE_FILTER_INDEX = "curveFilterIndex"
         private val STATE_MIXER_FILTER_INDEX = "mixerFilterIndex"
         private val STATE_CONVOLUTION_FILTER_INDEX = "convolutionFilterIndex"
+        private val STATE_IMAGE_DETECTION_FILTER_INDEX = "imageDetectionFilterIndex"
     }
 
     private var mCameraIndex: Int = 0
@@ -56,10 +58,12 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
     private var mBgr: Mat? = null
     private var mIsMenuLocked: Boolean = false
 
+    private var mImageDetectionFilters: Array<Filter> = emptyArray()
     private var mCurveFilters: Array<Filter> = emptyArray()
     private var mMixerFilters: Array<Filter> = emptyArray()
     private var mConvolutionFilters: Array<Filter> = emptyArray()
 
+    private var mImageDetectionFilterIndex = 0
     private var mCurveFilterIndex = 0
     private var mMixerFilterIndex = 0
     private var mConvolutionFilterIndex = 0
@@ -72,11 +76,13 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
             mCurveFilterIndex = savedInstanceState.getInt(STATE_CURVE_FILTER_INDEX, 0)
             mMixerFilterIndex = savedInstanceState.getInt(STATE_MIXER_FILTER_INDEX, 0)
             mConvolutionFilterIndex = savedInstanceState.getInt(STATE_CONVOLUTION_FILTER_INDEX, 0)
+            mImageDetectionFilterIndex = savedInstanceState.getInt(STATE_IMAGE_DETECTION_FILTER_INDEX, 0)
         } else {
             mCameraIndex = 0
             mCurveFilterIndex = 0
             mMixerFilterIndex = 0
             mConvolutionFilterIndex = 0
+            mImageDetectionFilterIndex = 0
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
             var cameraInfo = Camera.CameraInfo()
@@ -97,6 +103,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
         outState.putInt(STATE_CURVE_FILTER_INDEX, mCurveFilterIndex)
         outState.putInt(STATE_MIXER_FILTER_INDEX, mMixerFilterIndex)
         outState.putInt(STATE_CONVOLUTION_FILTER_INDEX, mConvolutionFilterIndex)
+        outState.putInt(STATE_IMAGE_DETECTION_FILTER_INDEX, mImageDetectionFilterIndex)
         super.onSaveInstanceState(outState)
     }
 
@@ -168,6 +175,13 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
                 }
                 return true
             }
+            R.id.menu_next_image_detection_filter -> {
+                mImageDetectionFilterIndex++
+                if (mImageDetectionFilterIndex == mImageDetectionFilters.size) {
+                    mImageDetectionFilterIndex = 0
+                }
+                return true
+            }
             else -> {
                 return super.onOptionsItemSelected(item)
             }
@@ -199,6 +213,14 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
                     mConvolutionFilters = arrayOf(
                             NoneFilter(),
                             StrokeEdgesFilter())
+                    try {
+                        val starryWight = ImageDetectionFilter(this@CameraActivity, R.drawable.starry_night)
+                        val akbarHunting = ImageDetectionFilter(this@CameraActivity, R.drawable.akbar_hunting_with_cheetahs)
+                        mImageDetectionFilters = arrayOf(NoneFilter(), starryWight, akbarHunting)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+
                 }
                 else -> {
                     super.onManagerConnected(status)
@@ -224,6 +246,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
         mCurveFilters[mCurveFilterIndex].apply(rgha,rgha)
         mMixerFilters[mMixerFilterIndex].apply(rgha,rgha)
         mConvolutionFilters[mConvolutionFilterIndex].apply(rgha,rgha)
+        mImageDetectionFilters[mImageDetectionFilterIndex].apply(rgha,rgha)
         if (mIsPhotoPending) {
             mIsPhotoPending = false
             takePhoto(rgha)
