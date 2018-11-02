@@ -13,20 +13,21 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.WindowManager
 import android.widget.Toast
-import com.ealax.opencvdemo.fliters.*
+import com.ealax.opencvdemo.fliters.Filter
+import com.ealax.opencvdemo.fliters.NoneFilter
 import com.ealax.opencvdemo.fliters.ar.ImageDetectionFilter
 import com.ealax.opencvdemo.fliters.convolution.StrokeEdgesFilter
 import com.ealax.opencvdemo.fliters.curve.CrossProcessCurveFilter
 import com.ealax.opencvdemo.fliters.curve.PortraCurveFilter
 import com.ealax.opencvdemo.fliters.curve.ProviaCurveFilter
-import com.ealax.opencvdemo.fliters.mixer.RecolorCMVFilter
 import com.ealax.opencvdemo.fliters.curve.VelviaCureFilter
+import com.ealax.opencvdemo.fliters.mixer.RecolorCMVFilter
 import com.ealax.opencvdemo.fliters.mixer.RecolorRCFilter
 import com.ealax.opencvdemo.fliters.mixer.RecolorRGVFilter
 import org.opencv.android.*
 import org.opencv.core.Core
 import org.opencv.core.Mat
-import org.opencv.imgcodecs.Imgcodecs
+import org.opencv.highgui.Highgui
 import org.opencv.imgproc.Imgproc
 import java.io.File
 
@@ -115,7 +116,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
     override fun onResume() {
         super.onResume()
         if (!OpenCVLoader.initDebug()) {
-            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, this, mLoaderCallback)
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_13, this, mLoaderCallback)
         } else {
             mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
         }
@@ -275,7 +276,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
             return
         }
         Imgproc.cvtColor(rgha, mBgr, Imgproc.COLOR_RGBA2BGR, 3)
-        if (!Imgcodecs.imwrite(photoPath, mBgr)) {
+        if (!Highgui.imwrite(photoPath, mBgr)) {
             onTakePhotoFailed()
         }
         var uri: Uri

@@ -5,8 +5,10 @@ import com.ealax.opencvdemo.fliters.Filter
 import org.opencv.android.Utils
 import org.opencv.calib3d.Calib3d
 import org.opencv.core.*
-import org.opencv.features2d.*
-import org.opencv.imgcodecs.Imgcodecs
+import org.opencv.features2d.DescriptorExtractor
+import org.opencv.features2d.DescriptorMatcher
+import org.opencv.features2d.FeatureDetector
+import org.opencv.highgui.Highgui
 import org.opencv.imgproc.Imgproc
 
 /**
@@ -25,15 +27,15 @@ class ImageDetectionFilter : Filter {
     private val mIntSceneCorners = MatOfPoint()
     private val mGraySrc = Mat()
     private val mMatches = MatOfDMatch()
-    private val mFeatureDetector = FastFeatureDetector.create(FastFeatureDetector.THRESHOLD,true ,FastFeatureDetector.TYPE_9_16)
-//    private val mDescriptorExtractor = BOWImgDescriptorExtractor.__fromPtr__(DescriptorExtractor.FREAK.toLong())
+    private val mFeatureDetector = FeatureDetector.create(FeatureDetector.STAR)
+    private val mDescriptorExtractor = DescriptorExtractor.create(DescriptorExtractor.FREAK)
     private val mDescriptorMatcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING)
 
     private val mLineColor = Scalar(0.0, 255.0, 0.0)
 
     constructor(context: Context, referenceImageResourceID: Int) {
         try {
-            mReferenceImage = Utils.loadResource(context, referenceImageResourceID, Imgcodecs.CV_LOAD_IMAGE_COLOR)
+            mReferenceImage = Utils.loadResource(context, referenceImageResourceID, Highgui.CV_LOAD_IMAGE_COLOR)
             val referenceImageGray = Mat()
             Imgproc.cvtColor(mReferenceImage, referenceImageGray, Imgproc.COLOR_BGR2GRAY)
 
@@ -43,7 +45,7 @@ class ImageDetectionFilter : Filter {
             mReferenceCorners.put(3,0, 0.0,referenceImageGray.rows().toDouble())
 
             mFeatureDetector.detect(referenceImageGray,mReferenceKeyPoints)
-//            mDescriptorExtractor.compute(referenceImageGray,mReferenceKeyPoints,mReferenceDescriptors)
+            mDescriptorExtractor.compute(referenceImageGray,mReferenceKeyPoints,mReferenceDescriptors)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -54,7 +56,7 @@ class ImageDetectionFilter : Filter {
         Imgproc.cvtColor(src,mGraySrc,Imgproc.COLOR_RGBA2GRAY)
 
         mFeatureDetector.detect(mGraySrc,mSceneKeyPoints)
-//        mDescriptorExtractor.compute(mGraySrc,mSceneKeyPoints,mSceneDescriptors)
+        mDescriptorExtractor.compute(mGraySrc,mSceneKeyPoints,mSceneDescriptors)
         mDescriptorMatcher.match(mSceneDescriptors,mReferenceDescriptors,mMatches)
 
         findSceneCorners()
@@ -128,13 +130,13 @@ class ImageDetectionFilter : Filter {
             return
         }
 
-        Imgproc.line(dst, Point(mSceneCorners.get(0,0)), Point(mSceneCorners.get(1,0)),
+        Core.line(dst, Point(mSceneCorners.get(0,0)), Point(mSceneCorners.get(1,0)),
                 mLineColor, 4)
-        Imgproc.line(dst, Point(mSceneCorners.get(1,0)), Point(mSceneCorners.get(2,0)),
+        Core.line(dst, Point(mSceneCorners.get(1,0)), Point(mSceneCorners.get(2,0)),
                 mLineColor, 4)
-        Imgproc.line(dst, Point(mSceneCorners.get(2,0)), Point(mSceneCorners.get(3,0)),
+        Core.line(dst, Point(mSceneCorners.get(2,0)), Point(mSceneCorners.get(3,0)),
                 mLineColor, 4)
-        Imgproc.line(dst, Point(mSceneCorners.get(3,0)), Point(mSceneCorners.get(0,0)),
+        Core.line(dst, Point(mSceneCorners.get(3,0)), Point(mSceneCorners.get(0,0)),
                 mLineColor, 4)
     }
 
