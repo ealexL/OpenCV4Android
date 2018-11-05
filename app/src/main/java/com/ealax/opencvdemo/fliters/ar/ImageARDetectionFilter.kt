@@ -45,7 +45,7 @@ class ImageARDetectionFilter : ARFilter {
     private var mTargetFound = false
 
 
-    constructor(context: Context, referenceImageResourceID: Int, cameraProjectionAdapter: CameraProjectionAdapter) {
+    constructor(context: Context, referenceImageResourceID: Int, cameraProjectionAdapter: CameraProjectionAdapter?) {
         try {
             mReferenceImage = Utils.loadResource(context, referenceImageResourceID, Highgui.CV_LOAD_IMAGE_COLOR)
             val referenceImageGray = Mat()

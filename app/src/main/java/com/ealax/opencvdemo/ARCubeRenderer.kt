@@ -85,7 +85,7 @@ class ARCubeRenderer : GLSurfaceView.Renderer {
             return
         val pose = filter!!.getGLPose() ?: return
         gl.glMatrixMode(GL10.GL_PROJECTION)
-        var projection = cameraProjectionAdapter!!.getProjectionGL()
+        val projection = cameraProjectionAdapter!!.getProjectionGL()
         gl.glLoadMatrixf(projection,0)
 
         gl.glMatrixMode(GL10.GL_MODELVIEW)
@@ -97,7 +97,10 @@ class ARCubeRenderer : GLSurfaceView.Renderer {
         gl.glEnableClientState(GL10.GL_COLOR_ARRAY)
 
         gl.glVertexPointer(3, GL11.GL_FLOAT, 0, VERTICES)
+        gl.glColorPointer(4,GL11.GL_UNSIGNED_BYTE,0, COLORS)
 
+        gl.glDrawElements(GL10.GL_TRIANGLE_FAN,18,GL10.GL_UNSIGNED_BYTE, TRIANGLE_FAN_0)
+        gl.glDrawElements(GL10.GL_TRIANGLE_FAN,18,GL10.GL_UNSIGNED_BYTE, TRIANGLE_FAN_1)
 
     }
 

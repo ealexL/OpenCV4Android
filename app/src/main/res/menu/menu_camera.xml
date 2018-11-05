@@ -37,5 +37,11 @@
         app:showAsAction="ifRoom|withText"
         android:title="@string/menu_next_image_detection_filter"
         />
+    <item
+        android:id="@+id/menu_next_image_ar_detection_filter"
+        android:orderInCategory="100"
+        app:showAsAction="ifRoom|withText"
+        android:title="@string/menu_next_image_ar_detection_filter"
+        />
 
 </menu>

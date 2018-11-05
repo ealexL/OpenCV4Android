@@ -2,8 +2,10 @@ package com.ealax.opencvdemo
 
 import android.content.ContentValues
 import android.content.Intent
+import android.graphics.PixelFormat
 import android.hardware.Camera
 import android.net.Uri
+import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -12,10 +14,15 @@ import android.support.v7.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.Toast
+import com.ealax.opencvdemo.adapters.CameraProjectionAdapter
 import com.ealax.opencvdemo.fliters.Filter
 import com.ealax.opencvdemo.fliters.NoneFilter
+import com.ealax.opencvdemo.fliters.ar.ARFilter
+import com.ealax.opencvdemo.fliters.ar.ImageARDetectionFilter
 import com.ealax.opencvdemo.fliters.ar.ImageDetectionFilter
+import com.ealax.opencvdemo.fliters.ar.NoneARFilter
 import com.ealax.opencvdemo.fliters.convolution.StrokeEdgesFilter
 import com.ealax.opencvdemo.fliters.curve.CrossProcessCurveFilter
 import com.ealax.opencvdemo.fliters.curve.PortraCurveFilter
@@ -49,6 +56,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
         private val STATE_MIXER_FILTER_INDEX = "mixerFilterIndex"
         private val STATE_CONVOLUTION_FILTER_INDEX = "convolutionFilterIndex"
         private val STATE_IMAGE_DETECTION_FILTER_INDEX = "imageDetectionFilterIndex"
+        private val STATE_IMAGE_AR_DETECTION_FILTER_INDEX = "imageARDetectionFilterIndex"
     }
 
     private var mCameraIndex: Int = 0
@@ -59,15 +67,20 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
     private var mBgr: Mat? = null
     private var mIsMenuLocked: Boolean = false
 
+    private var mImageARDetectionFilters: Array<ARFilter> = emptyArray()
     private var mImageDetectionFilters: Array<Filter> = emptyArray()
     private var mCurveFilters: Array<Filter> = emptyArray()
     private var mMixerFilters: Array<Filter> = emptyArray()
     private var mConvolutionFilters: Array<Filter> = emptyArray()
 
+    private var mImageARDetectionFilterIndex = 0
     private var mImageDetectionFilterIndex = 0
     private var mCurveFilterIndex = 0
     private var mMixerFilterIndex = 0
     private var mConvolutionFilterIndex = 0
+
+    private var mCameraProjectionAdapter: CameraProjectionAdapter? = null
+    private var mARRenderer:ARCubeRenderer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,25 +91,53 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
             mMixerFilterIndex = savedInstanceState.getInt(STATE_MIXER_FILTER_INDEX, 0)
             mConvolutionFilterIndex = savedInstanceState.getInt(STATE_CONVOLUTION_FILTER_INDEX, 0)
             mImageDetectionFilterIndex = savedInstanceState.getInt(STATE_IMAGE_DETECTION_FILTER_INDEX, 0)
+            mImageARDetectionFilterIndex = savedInstanceState.getInt(STATE_IMAGE_AR_DETECTION_FILTER_INDEX, 0)
         } else {
             mCameraIndex = 0
             mCurveFilterIndex = 0
             mMixerFilterIndex = 0
             mConvolutionFilterIndex = 0
             mImageDetectionFilterIndex = 0
+            mImageARDetectionFilterIndex = 0
         }
+        val layoout = FrameLayout(this)
+        layoout.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT)
+        setContentView(layoout)
+        mCameraView = JavaCameraView(this, mCameraIndex)
+        mCameraView!!.setCvCameraViewListener(this)
+        mCameraView!!.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT)
+        layoout.addView(mCameraView)
+        val glSurfaceView = GLSurfaceView(this)
+        glSurfaceView.holder.setFormat(PixelFormat.TRANSPARENT)
+        glSurfaceView.setEGLConfigChooser(8,8,8,8,0,0)
+        glSurfaceView.setZOrderOnTop(true)
+        glSurfaceView.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT)
+        layoout.addView(glSurfaceView)
+
+        mCameraProjectionAdapter = CameraProjectionAdapter()
+
+        mARRenderer = ARCubeRenderer()
+        mARRenderer!!.cameraProjectionAdapter = mCameraProjectionAdapter
+        glSurfaceView.setRenderer(mARRenderer)
+
+        var camera: Camera? = null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
             var cameraInfo = Camera.CameraInfo()
             Camera.getCameraInfo(mCameraIndex, cameraInfo)
             mIsCameraFrontFacing = (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT)
             mNumCameras = Camera.getNumberOfCameras()
+            camera = Camera.open(mCameraIndex)
         } else {
             mIsCameraFrontFacing = false
             mNumCameras = 1
+            camera = Camera.open()
         }
-        mCameraView = JavaCameraView(this, mCameraIndex)
-        mCameraView!!.setCvCameraViewListener(this)
-        setContentView(mCameraView)
+        val parameters = camera!!.parameters
+        mCameraProjectionAdapter!!.setCameraParameters(parameters)
+        camera.release()
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {
@@ -105,6 +146,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
         outState.putInt(STATE_MIXER_FILTER_INDEX, mMixerFilterIndex)
         outState.putInt(STATE_CONVOLUTION_FILTER_INDEX, mConvolutionFilterIndex)
         outState.putInt(STATE_IMAGE_DETECTION_FILTER_INDEX, mImageDetectionFilterIndex)
+        outState.putInt(STATE_IMAGE_AR_DETECTION_FILTER_INDEX, mImageARDetectionFilterIndex)
         super.onSaveInstanceState(outState)
     }
 
@@ -183,6 +225,13 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
                 }
                 return true
             }
+            R.id.menu_next_image_ar_detection_filter -> {
+                mImageARDetectionFilterIndex++
+                if (mImageARDetectionFilterIndex == mImageARDetectionFilters.size) {
+                    mImageARDetectionFilterIndex = 0
+                }
+                return true
+            }
             else -> {
                 return super.onOptionsItemSelected(item)
             }
@@ -221,6 +270,13 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
+                    try {
+                        val starryWight = ImageARDetectionFilter(this@CameraActivity, R.drawable.starry_night,mCameraProjectionAdapter)
+                        val akbarHunting = ImageARDetectionFilter(this@CameraActivity, R.drawable.akbar_hunting_with_cheetahs,mCameraProjectionAdapter)
+                        mImageARDetectionFilters = arrayOf(NoneARFilter(), starryWight, akbarHunting)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
 
                 }
                 else -> {
@@ -248,6 +304,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
         mMixerFilters[mMixerFilterIndex].apply(rgha,rgha)
         mConvolutionFilters[mConvolutionFilterIndex].apply(rgha,rgha)
         mImageDetectionFilters[mImageDetectionFilterIndex].apply(rgha,rgha)
+        mImageARDetectionFilters[mImageARDetectionFilterIndex].apply(rgha,rgha)
         if (mIsPhotoPending) {
             mIsPhotoPending = false
             takePhoto(rgha)
