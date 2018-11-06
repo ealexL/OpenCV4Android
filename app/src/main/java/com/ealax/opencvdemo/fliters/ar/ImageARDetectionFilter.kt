@@ -71,16 +71,16 @@ class ImageARDetectionFilter : ARFilter {
                 halfRealHeight = 0.5f * realSize
                 halfRealWidth = halfRealHeight * aspectRatio
             } else {
-                halfRealWidth = 0.5f * realSize;
+                halfRealWidth = 0.5f * realSize
                 halfRealHeight = halfRealWidth / aspectRatio
             }
 
             // viewer.
             mReferenceCorners3D.fromArray(
                     Point3(-halfRealWidth, -halfRealHeight, 0.0),
-            Point3( halfRealWidth, -halfRealHeight, 0.0),
-            Point3( halfRealWidth,  halfRealHeight, 0.0),
-            Point3(-halfRealWidth,  halfRealHeight, 0.0))
+                    Point3( halfRealWidth, -halfRealHeight, 0.0),
+                    Point3( halfRealWidth,  halfRealHeight, 0.0),
+                    Point3(-halfRealWidth,  halfRealHeight, 0.0))
 
 
             mFeatureDetector.detect(referenceImageGray, mReferenceKeyPoints)
@@ -149,7 +149,7 @@ class ImageARDetectionFilter : ARFilter {
         val homography = Calib3d.findHomography(goodReferencePoints, goodScenePoints)
         Core.perspectiveTransform(mReferenceCorners, mCandidateSceneCorners, homography)
         mCandidateSceneCorners.convertTo(mIntSceneCorners, CvType.CV_32S)
-        if (Imgproc.isContourConvex(mIntSceneCorners)) {
+        if (!Imgproc.isContourConvex(mIntSceneCorners)) {
 //            mCandidateSceneCorners.copyTo(mSceneCorners)
             return
         }
@@ -226,7 +226,7 @@ class ImageARDetectionFilter : ARFilter {
         if (!mTargetFound) {
             var height = mReferenceImage!!.height()
             var width = mReferenceImage!!.width()
-            val maxDimension = Math.min(dst.width(), dst.height() / 2)
+            val maxDimension = Math.min(dst.width(), dst.height()) / 2
             val aspectRatio: Double = width / height.toDouble()
             if (height > width) {
                 height = maxDimension
