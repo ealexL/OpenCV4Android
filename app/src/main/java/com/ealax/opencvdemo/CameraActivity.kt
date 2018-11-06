@@ -37,6 +37,10 @@ import org.opencv.core.Mat
 import org.opencv.highgui.Highgui
 import org.opencv.imgproc.Imgproc
 import java.io.File
+import android.view.SubMenu
+import java.nio.file.Files.size
+
+
 
 
 /**
@@ -52,6 +56,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
     companion object {
         private val TAG = "CameraActivity"
         private val STATE_CAMEERA_INDEX = "cameraIndex"
+        private val STATE_IMAGE_SIZE_INDEX = "imageSizeIndex"
         private val STATE_CURVE_FILTER_INDEX = "curveFilterIndex"
         private val STATE_MIXER_FILTER_INDEX = "mixerFilterIndex"
         private val STATE_CONVOLUTION_FILTER_INDEX = "convolutionFilterIndex"
@@ -59,6 +64,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
         private val STATE_IMAGE_AR_DETECTION_FILTER_INDEX = "imageARDetectionFilterIndex"
     }
 
+    private var mImageSizeIndex: Int = 0
     private var mCameraIndex: Int = 0
     private var mIsCameraFrontFacing: Boolean = false
     private var mNumCameras: Int = 0
@@ -66,6 +72,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
     private var mIsPhotoPending: Boolean = false
     private var mBgr: Mat? = null
     private var mIsMenuLocked: Boolean = false
+    private val MENU_GROUP_ID_SIZE = 2
 
     private var mImageARDetectionFilters: Array<ARFilter> = emptyArray()
     private var mImageDetectionFilters: Array<Filter> = emptyArray()
@@ -81,12 +88,14 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
 
     private var mCameraProjectionAdapter: CameraProjectionAdapter? = null
     private var mARRenderer:ARCubeRenderer? = null
+    private var mSupportedImageSizes: List<Camera.Size> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (savedInstanceState != null) {
             mCameraIndex = savedInstanceState.getInt(STATE_CAMEERA_INDEX, 0)
+            mImageSizeIndex = savedInstanceState.getInt(STATE_IMAGE_SIZE_INDEX, 0)
             mCurveFilterIndex = savedInstanceState.getInt(STATE_CURVE_FILTER_INDEX, 0)
             mMixerFilterIndex = savedInstanceState.getInt(STATE_MIXER_FILTER_INDEX, 0)
             mConvolutionFilterIndex = savedInstanceState.getInt(STATE_CONVOLUTION_FILTER_INDEX, 0)
@@ -94,28 +103,31 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
             mImageARDetectionFilterIndex = savedInstanceState.getInt(STATE_IMAGE_AR_DETECTION_FILTER_INDEX, 0)
         } else {
             mCameraIndex = 0
+            mImageSizeIndex = 0
             mCurveFilterIndex = 0
             mMixerFilterIndex = 0
             mConvolutionFilterIndex = 0
             mImageDetectionFilterIndex = 0
             mImageARDetectionFilterIndex = 0
         }
-        val layoout = FrameLayout(this)
-        layoout.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+        val layout = FrameLayout(this)
+        layout.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT)
-        setContentView(layoout)
+        setContentView(layout)
+
         mCameraView = JavaCameraView(this, mCameraIndex)
         mCameraView!!.setCvCameraViewListener(this)
         mCameraView!!.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT)
-        layoout.addView(mCameraView)
+        layout.addView(mCameraView)
+
         val glSurfaceView = GLSurfaceView(this)
         glSurfaceView.holder.setFormat(PixelFormat.TRANSPARENT)
         glSurfaceView.setEGLConfigChooser(8,8,8,8,0,0)
         glSurfaceView.setZOrderOnTop(true)
         glSurfaceView.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT)
-        layoout.addView(glSurfaceView)
+        layout.addView(glSurfaceView)
 
         mCameraProjectionAdapter = CameraProjectionAdapter()
 
@@ -136,18 +148,32 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
             camera = Camera.open()
         }
         val parameters = camera!!.parameters
-        mCameraProjectionAdapter!!.setCameraParameters(parameters)
         camera.release()
+        mSupportedImageSizes = parameters.supportedPreviewSizes
+        val size = mSupportedImageSizes[mImageSizeIndex]
+        mCameraProjectionAdapter!!.setCameraParameters(parameters, size)
+//        mCameraProjectionAdapter!!.setCameraParameters(parameters)
     }
 
     override fun onSaveInstanceState(outState: Bundle?) {
         outState!!.putInt(STATE_CAMEERA_INDEX, mCameraIndex)
+        outState.putInt(STATE_IMAGE_SIZE_INDEX, mImageSizeIndex)
         outState.putInt(STATE_CURVE_FILTER_INDEX, mCurveFilterIndex)
         outState.putInt(STATE_MIXER_FILTER_INDEX, mMixerFilterIndex)
         outState.putInt(STATE_CONVOLUTION_FILTER_INDEX, mConvolutionFilterIndex)
         outState.putInt(STATE_IMAGE_DETECTION_FILTER_INDEX, mImageDetectionFilterIndex)
         outState.putInt(STATE_IMAGE_AR_DETECTION_FILTER_INDEX, mImageARDetectionFilterIndex)
         super.onSaveInstanceState(outState)
+    }
+
+    override fun recreate() {
+//        super.recreate()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            super.recreate()
+        } else {
+            finish()
+            startActivity(intent)
+        }
     }
 
     override fun onPause() {
@@ -177,13 +203,28 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
         if (mNumCameras < 2) {
             menu.removeItem(R.id.menu_next_camera)
         }
+        val numSupportedImageSizes = mSupportedImageSizes.size
+        if (numSupportedImageSizes > 1) {
+            val sizeSubMenu = menu.addSubMenu(R.string.menu_image_size)
+            for (i in 0 until numSupportedImageSizes) {
+                val size = mSupportedImageSizes[i]
+                sizeSubMenu.add(MENU_GROUP_ID_SIZE, i, Menu.NONE,
+                        String.format("%dx%d", size.width,
+                                size.height))
+            }
+        }
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem?): Boolean {
         if (mIsMenuLocked)
             return true
-        when (item!!.itemId) {
+        if (item!!.groupId == MENU_GROUP_ID_SIZE) {
+            mImageSizeIndex = item.itemId
+            recreate()
+            return true
+        }
+        when (item.itemId) {
             R.id.menu_next_camera -> {
                 mIsMenuLocked = true
                 mCameraIndex++
@@ -230,6 +271,7 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
                 if (mImageARDetectionFilterIndex == mImageARDetectionFilters.size) {
                     mImageARDetectionFilterIndex = 0
                 }
+                mARRenderer!!.filter = mImageARDetectionFilters[mImageARDetectionFilterIndex]
                 return true
             }
             else -> {
@@ -271,8 +313,8 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
                         e.printStackTrace()
                     }
                     try {
-                        val starryWight = ImageARDetectionFilter(this@CameraActivity, R.drawable.starry_night,mCameraProjectionAdapter)
-                        val akbarHunting = ImageARDetectionFilter(this@CameraActivity, R.drawable.akbar_hunting_with_cheetahs,mCameraProjectionAdapter)
+                        val starryWight = ImageARDetectionFilter(this@CameraActivity, R.drawable.starry_night,mCameraProjectionAdapter,1.0)
+                        val akbarHunting = ImageARDetectionFilter(this@CameraActivity, R.drawable.akbar_hunting_with_cheetahs,mCameraProjectionAdapter,1.0)
                         mImageARDetectionFilters = arrayOf(NoneARFilter(), starryWight, akbarHunting)
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -293,7 +335,6 @@ class CameraActivity : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewLis
     }
 
     override fun onCameraViewStopped() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
     override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame?): Mat {
